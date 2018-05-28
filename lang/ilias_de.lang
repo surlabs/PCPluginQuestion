@@ -1,0 +1,12 @@
+//
+// Copyright (c) 2018 Institut fuer Lern-Innovation, Friedrich-Alexander-Universitaet Erlangen-Nuernberg
+// GPLv3, see docs/LICENSE
+//
+//
+// @author Fred Neumann <fred.neumann@ili.fau.de>
+//
+
+<!-- language file start -->
+cmd_insert#:#Test-Komponente einfügen
+edit_input_field#:#Test-Komponente bearbeiten
+content_plugin_version#:#Inhalt zuletzt bearbeitet mit Version
