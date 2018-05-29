@@ -7,6 +7,6 @@
 //
 
 <!-- language file start -->
-cmd_insert#:#Test-Komponente einfügen
-edit_input_field#:#Test-Komponente bearbeiten
+cmd_insert#:#Plugin-Frage einfügen
+edit_input_field#:#Plugin-Frage einfügen
 content_plugin_version#:#Inhalt zuletzt bearbeitet mit Version

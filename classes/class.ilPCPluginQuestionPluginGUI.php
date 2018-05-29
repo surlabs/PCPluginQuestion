@@ -24,6 +24,24 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 	/** @var  ilTemplate $tpl */
 	protected $tpl;
 
+	/** @var ilPCPluginQuestionPlugin */
+	protected $plugin;
+
+	/** @var ilAccessHandler */
+    protected $access;
+
+    /** @var ilTabsGUI */
+    protected $tabs;
+
+    /** @var ilToolbarGUI */
+    protected $toolbar;
+
+    /** @var ilObjUser  */
+    protected $user;
+
+    /** @var ilPropertyFormGUI */
+    protected $form_gui;
+
 	/**
 	 * ilPCPluginQuestionPluginGUI constructor.
 	 */
@@ -31,10 +49,21 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 	{
 		global $DIC;
 
+        parent::__construct();
+
 		$this->lng = $DIC->language();
 		$this->ctrl = $DIC->ctrl();
-		$this->tpl = $DIC['tpl'];
-	}
+        $this->access = $DIC->access();
+        $this->tabs = $DIC->tabs();
+        $this->lng = $DIC->language();
+        $this->user = $DIC->user();
+        $this->toolbar = $DIC->toolbar();
+
+        $this->tpl = $DIC['tpl'];
+
+        $this->lng->loadLanguageModule('assessment');
+        $this->lng->loadLanguageModule('cont');
+    }
 
 
 	/**
@@ -49,190 +78,238 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 			default:
 				// perform valid commands
 				$cmd = $this->ctrl->getCmd();
-				if (in_array($cmd, array("create", "save", "edit", "update", "cancel")))
+
+				// we need sub commands of 'insert' for the selection of questions from pools
+                // otherwise ilPageEditorGUI will redirect to the page
+                // because the page content is not yet created
+				if (($cmd == 'insert') && $_GET["subCmd"] != '')
+                {
+                    $cmd = $_GET["subCmd"];
+                }
+
+				if (in_array($cmd, array("insert", "create", "save", "edit", "cancel",
+                    "insertFromPool", "poolSelection", "selectPool", "copyQuestion")))
 				{
 					$this->$cmd();
 				}
+				else
+                {
+                    $this->tpl->setContent('unknown command: '. $cmd);
+                }
 				break;
 		}
 	}
-	
+
+
+    /**
+     * Set insert tabs
+     *
+     * @param string $a_active active tab id
+     */
+    function setInsertTabs($a_active)
+    {
+        // new question
+        $this->tabs->addSubTab("new_question",
+            $this->lng->txt("cont_new_question"),
+            $this->ctrl->getLinkTarget($this, "insert"));
+
+        // copy from pool
+        $this->ctrl->setParameter($this, "subCmd", "insertFromPool");
+        $this->tabs->addSubTab("copy_question",
+            $this->lng->txt("cont_copy_question_from_pool"),
+            $this->ctrl->getLinkTarget($this, "insert"));
+
+        $this->tabs->activateSubTab($a_active);
+    }
 	
 	/**
-	 * Create
+	 * Show form to insert a question
 	 */
 	public function insert()
 	{
-		$form = $this->initForm(true);
-		$this->tpl->setContent($form->getHTML());
+        $this->setInsertTabs("new_question");
+        $this->initInsertForm();
+        $this->tpl->setContent($this->form_gui->getHTML());
 	}
-	
+
+    /**
+     * Initialize the insert form
+     */
+	protected function initInsertForm()
+    {
+        $this->form_gui = new ilPropertyFormGUI();
+        $this->form_gui->setFormAction($this->ctrl->getFormAction($this));
+        $this->form_gui->setTitle($this->lng->txt("cont_ed_insert_pcqst"));
+
+        // Select Question Type
+        $options = $this->plugin->getAvailableQuestionTypeOptions();
+        $qtype_input = new ilSelectInputGUI($this->lng->txt("cont_question_type"), "question_type");
+        $qtype_input->setOptions($options);
+        $qtype_input->setRequired(true);
+        $this->form_gui->addItem($qtype_input);
+
+        // additional content editor
+        if (ilObjAssessmentFolder::isAdditionalQuestionContentEditingModePageObjectEnabled())
+        {
+            $ri = new ilRadioGroupInputGUI($this->lng->txt("tst_add_quest_cont_edit_mode"), "add_quest_cont_edit_mode");
+
+            $ri->addOption(new ilRadioOption(
+                $this->lng->txt('tst_add_quest_cont_edit_mode_default'),
+                assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_DEFAULT
+            ));
+
+            $ri->addOption(new ilRadioOption(
+                $this->lng->txt('tst_add_quest_cont_edit_mode_page_object'),
+                assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_PAGE_OBJECT
+            ));
+
+            $ri->setValue(assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_DEFAULT);
+
+            $this->form_gui->addItem($ri);
+        }
+        else
+        {
+            $hi = new ilHiddenInputGUI("question_content_editing_type");
+            $hi->setValue(assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_DEFAULT);
+            $this->form_gui->addItem($hi);
+        }
+
+        $this->form_gui->addCommandButton("create", $this->lng->txt("save"));
+        $this->form_gui->addCommandButton("cancel", $this->lng->txt("cancel"));
+    }
+
+
 	/**
-	 * Save new pc example element
+	 * Save a new question of the selected type
 	 */
 	public function create()
 	{
-		$form = $this->initForm(true);
-		if ($this->saveForm($form, true));
-		{
-			ilUtil::sendSuccess($this->lng->txt("msg_obj_modified"), true);
-			$this->returnToParent();
-		}
-		$form->setValuesByPost();
-		$this->tpl->setContent($form->getHtml());
+		$this->initInsertForm();
+		if ($this->form_gui->checkInput())
+        {
+            $question_type = $this->form_gui->getInput('question_type');
+            $add_quest_cont_edit_mode = $this->form_gui->getInput('add_quest_cont_edit_mode');
+
+            $q_gui = assQuestionGUI::_getQuestionGUI($question_type);
+            $q_gui->object->setAdditionalContentEditingMode($add_quest_cont_edit_mode);
+            $q_gui->object->setDefaultNrOfTries(ilObjSAHSLearningModule::_getTries($this->plugin->getParentId()));
+            $question_id = $q_gui->object->createNewQuestion(false);
+
+            $properties = array('question_id' => $question_id);
+            $this->createElement($properties);
+            $this->editQuestion($properties['question_id']);
+        }
+		$this->form_gui->setValuesByPost();
+		$this->tpl->setContent($this->form_gui->getHtml());
 	}
-	
+
+
+    /**
+     * Insert question from pool
+     */
+    public function insertFromPool()
+    {
+        if ($_SESSION["cont_qst_pool"] != ""
+            && $this->access->checkAccess("write", "", $_SESSION["cont_qst_pool"])
+            && ilObject::_lookupType(ilObject::_lookupObjId($_SESSION["cont_qst_pool"])) == "qpl")
+        {
+            $this->listPoolQuestions();
+        }
+        else
+        {
+            $this->poolSelection();
+        }
+    }
+
+    /**
+     * Pool selection
+     */
+    function poolSelection()
+    {
+        $this->setInsertTabs("copy_question");
+
+        $this->ctrl->setParameter($this, "subCmd", "poolSelection");
+        $exp = new ilPoolSelectorGUI($this, "insert");
+
+        // filter
+        $exp->setTypeWhiteList(array("root", "cat", "grp", "fold", "crs", "qpl"));
+        $exp->setClickableTypes(array('qpl'));
+
+        if (!$exp->handleCommand())
+        {
+            $this->tpl->setContent($exp->getHTML());
+        }
+    }
+
+    /**
+     * Select concrete question pool
+     */
+    function selectPool()
+    {
+        $_SESSION["cont_qst_pool"] = $_GET["pool_ref_id"];
+
+        $this->ctrl->setParameter($this, "subCmd", "insertFromPool");
+        $this->ctrl->redirect($this, "insert");
+    }
+
+    /**
+     * List questions of pool
+     */
+    function listPoolQuestions()
+    {
+        $this->setInsertTabs("copy_question");
+
+        ilUtil::sendInfo($this->lng->txt("cont_cp_question_diff_formats_info"));
+
+        $this->ctrl->setParameter($this, "subCmd", "poolSelection");
+        $button = ilLinkButton::getInstance();
+        $button->setUrl($this->ctrl->getLinkTarget($this, 'insert'));
+        $button->setCaption('cont_select_other_qpool');
+        $this->toolbar->addButtonInstance($button);
+
+        $this->plugin->includeClass('class.ilPCPluginQuestionSelectTableGUI.php');
+        $this->ctrl->setParameter($this, "subCmd", "listPoolQuestions");
+        $table_gui = new ilPCPluginQuestionSelectTableGUI($this, 'insert', $_SESSION["cont_qst_pool"]);
+
+        $this->tpl->setContent($table_gui->getHTML());
+    }
+
+    /**
+     * Copy question into page
+     */
+    function copyQuestion()
+    {
+        $question_id = $_GET["q_id"];
+
+        /** @var assQuestion $question */
+        $question = assQuestion::_instantiateQuestion($question_id);
+        $duplicate_id = $question->copyObject(0, $question->getTitle());
+
+        $properties['question_id'] = $duplicate_id;
+        $this->createElement($properties);
+        $this->editQuestion($properties['question_id']);
+    }
+
+
 	/**
 	 * Edit
 	 */
 	public function edit()
 	{
-        $form = $this->initForm();
-
-		$this->tpl->setContent($form->getHTML());
-	}
-	
-	/**
-	 * Update
-	 */
-	public function update()
-	{
-		$form = $this->initForm(false);
-		if ($this->saveForm($form, false));
-		{
-			ilUtil::sendSuccess($this->lng->txt("msg_obj_modified"), true);
-			$this->returnToParent();
-		}
-		$form->setValuesByPost();
-		$this->tpl->setContent($form->getHtml());
-	}
-	
-	
-	/**
-	 * Init editing form
-	 *
-	 * @param        int        $a_create        true: create component, false: edit component
-	 */
-	protected function initForm($a_create = false)
-	{
-		include_once("Services/Form/classes/class.ilPropertyFormGUI.php");
-		$form = new ilPropertyFormGUI();
-
-		// page value
-        $page_value = new ilTextInputGUI('page_value', 'page_value');
-		$page_value->setMaxLength(40);
-		$page_value->setSize(40);
-		$page_value->setRequired(true);
-		$form->addItem($page_value);
-
-		// page file
-		$page_file = new ilFileInputGUI('page_file', 'page_file');
-		$page_file->setALlowDeletion(true);
-		$form->addItem($page_file);
-
-		// additional data
-		$data = new ilTextInputGUI('additional_data', 'additional_data');
-		$data->setMaxLength(40);
-		$data->setSize(40);
-		$form->addItem($data);
-
-		// page info values
-		foreach ($this->getPageInfo() as $key => $value)
-		{
-			$info = new ilNonEditableValueGUI($key);
-			$info->setValue($value);
-			$form->addItem($info);
-		}
-
-		// save and cancel commands
-		if ($a_create)
-		{
-			$this->addCreationButton($form);
-			$form->addCommandButton("cancel", $this->lng->txt("cancel"));
-			$form->setTitle($this->plugin->getPluginName());
-		}
-		else
-		{
-			$prop = $this->getProperties();
-			$page_value->setValue($prop['page_value']);
-			$data->setValue($this->plugin->getData($prop['additional_data_id']));
-
-			$form->addCommandButton("update", $this->lng->txt("save"));
-			$form->addCommandButton("cancel", $this->lng->txt("cancel"));
-			$form->setTitle($this->plugin->getPluginName());
-		}
-		
-		$form->setFormAction($this->ctrl->getFormAction($this));
-		return $form;
+        $properties = $this->getProperties();
+        $this->editQuestion($properties['question_id']);
 	}
 
+    /**
+     * Show the question editor
+     * @param int $question_id
+     */
+	protected function editQuestion($question_id)
+    {
+        $this->ctrl->setParameterByClass("ilQuestionEditGUI", "q_id", $question_id);
+        $this->ctrl->redirectByClass(array($this->plugin->getPageClass()."GUI", "ilQuestionEditGUI"), "editQuestion");
 
-	protected function saveForm($form, $a_create)
-	{
-		if ($form->checkInput())
-		{
-			$properties = $this->getProperties();
-
-			// value saved in the page
-			$properties['page_value'] = $form->getInput('page_value');
-
-			// file object
-			if (!empty($_FILES["page_file"]["name"]))
-			{
-				$old_file_id = empty($properties['page_file']) ? null : $properties['page_file'];
-
-				include_once("./Modules/File/classes/class.ilObjFile.php");
-				$fileObj = new ilObjFile($old_file_id, false);
-				$fileObj->setType("file");
-				$fileObj->setTitle($_FILES["page_file"]["name"]);
-				$fileObj->setDescription("");
-				$fileObj->setFileName($_FILES["page_file"]["name"]);
-				$fileObj->setFileType($_FILES["page_file"]["type"]);
-				$fileObj->setFileSize($_FILES["page_file"]["size"]);
-				$fileObj->setMode("filelist");
-				if (empty($old_file_id))
-				{
-					$fileObj->create();
-				}
-				else
-				{
-					$fileObj->update();
-				}
-				$fileObj->raiseUploadError(false);
-				// upload file to filesystem
-				$fileObj->createDirectory();
-				$fileObj->getUploadFile($_FILES["page_file"]["tmp_name"],
-					$_FILES["page_file"]["name"]);
-
-
-					$properties['page_file'] = $fileObj->getId();
-			}
-
-			// additional data
-			$id = $properties['additional_data_id'];
-			if (empty($id))
-			{
-				$id = $this->plugin->saveData($form->getInput('additional_data'));
-				$properties['additional_data_id'] = $id;
-			}
-			else
-			{
-				$this->plugin->updateData($id, $form->getInput('additional_data'));
-			}
-
-
-			if ($a_create)
-			{
-				return $this->createElement($properties);
-			}
-			else
-			{
-				return $this->updateElement($properties);
-			}
-		}
-
-		return false;
-	}
+    }
 
 
 	/**
@@ -256,47 +333,6 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 
 		// show properties stores in the page
 		$html =  '<pre>' . print_r($display, true) ;
-
-		// show additional data
-		if (!empty($a_properties['additional_data_id']))
-		{
-			$data = $this->plugin->getData($a_properties['additional_data_id']);
-			$html .= 'Data: ' . $data . "\n";
-		}
-
-		// show uploaded file
-		if (!empty($a_properties['page_file']))
-		{
-			try
-			{
-				include_once("./Modules/File/classes/class.ilObjFile.php");
-				$fileObj = new ilObjFile($a_properties['page_file'], false);
-
-				// security
-				$_SESSION[__CLASS__	]['allowedFiles'][$fileObj->getId()] = true;
-
-				$this->ctrl->setParameter($this, 'id', $fileObj->getId());
-				$url = $this->ctrl->getLinkTargetByClass(array('ilUIPluginRouterGUI', 'ilTestPageComponentPluginGUI'), 'downloadFile');
-				$title = $fileObj->getPresentationTitle();
-
-			}
-			catch (Exception $e)
-			{
-				$url = "";
-				$title = $e->getMessage();
-			}
-
-			$html .= 'File: <a href="'.$url.'">'.$title.'</a>'. "\n";
-		}
-
-		// Show listened event
-		if ($event = $_SESSION['pctpc_listened_event'])
-		{
-			$html .= "\n";
-			$html .= 'Last Auth Event: '. ilDatePresentation::formatDate(new ilDateTime($event['time'], IL_CAL_UNIX));
-			$html .= ' ' . $event['event'];
-		}
-
 		$html .= '</pre>';
 
 		return $html;

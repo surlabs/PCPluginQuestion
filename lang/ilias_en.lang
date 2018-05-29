@@ -6,6 +6,6 @@
 //
 
 <!-- language file start -->
-cmd_insert#:#Insert Test Component
-edit_input_field#:#Edit Test Component
+cmd_insert#:#Insert Plugin Question
+edit_input_field#:#Edit Plugin Question
 content_plugin_version#:#Content last edited with version
