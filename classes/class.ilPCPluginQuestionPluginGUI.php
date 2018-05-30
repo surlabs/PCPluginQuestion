@@ -10,8 +10,9 @@
  *
  * @author Fred Neumann <fred.neumann@ili.fau.de>
  *
- * @ilCtrl_isCalledBy ilPCPluginQuestionPluginGUI: ilPCPluggedGUI
- * @ilCtrl_isCalledBy ilPCPluginQuestionPluginGUI: ilUIPluginRouterGUI
+ * @ilCtrl_IsCalledBy ilPCPluginQuestionPluginGUI: ilPCPluggedGUI
+ * @ilCtrl_IsCalledBy ilPCPluginQuestionPluginGUI: ilLMPresentationGUI
+ * @ilCtrl_Calls ilPCPluginQuestionPluginGUI: ilPCPluginQuestionPresentationGUI
  */
 class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 {
@@ -193,7 +194,9 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
             $q_gui = assQuestionGUI::_getQuestionGUI($question_type);
             $q_gui->object->setAdditionalContentEditingMode($add_quest_cont_edit_mode);
             $q_gui->object->setDefaultNrOfTries(ilObjSAHSLearningModule::_getTries($this->plugin->getParentId()));
-            $question_id = $q_gui->object->createNewQuestion(false);
+            // copage must be created
+            // otherwise deleting the question brings an error
+            $question_id = $q_gui->object->createNewQuestion(true);
 
             $properties = array('question_id' => $question_id);
             $this->createElement($properties);
@@ -308,9 +311,7 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
     {
         $this->ctrl->setParameterByClass("ilQuestionEditGUI", "q_id", $question_id);
         $this->ctrl->redirectByClass(array($this->plugin->getPageClass()."GUI", "ilQuestionEditGUI"), "editQuestion");
-
     }
-
 
 	/**
 	 * Cancel
@@ -331,11 +332,22 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 	{
 		$display = array_merge($a_properties, $this->getPageInfo());
 
-		// show properties stores in the page
-		$html =  '<pre>' . print_r($display, true) ;
-		$html .= '</pre>';
+        $html = '';
+		if ($a_properties['question_id'] > 0)
+        {
+            $this->plugin->includeClass('class.ilPCPluginQuestionPresentationGUI.php');
+            $pres_gui = new ilPCPluginQuestionPresentationGUI($this->plugin);
+            $pres_gui->setPresentatioMode($a_mode);
+            $pres_gui->setQuestionId($a_properties['question_id']);
+            $html .= $pres_gui->getHTML();
+        }
 
-		return $html;
+        // show properties stores in the page
+        $html .=  '<pre>' . print_r($display, true) ;
+        $html .= '</pre>';
+
+
+        return $html;
 	}
 
 
