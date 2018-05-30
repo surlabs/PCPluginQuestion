@@ -48,6 +48,10 @@ class ilPCPluginQuestionPlugin extends ilPageComponentPlugin
 		}
 	}
 
+	public function getParentRefId()
+	{
+		return $_GET['ref_id'];
+	}
 
     /**
      * Get the select options for available question types

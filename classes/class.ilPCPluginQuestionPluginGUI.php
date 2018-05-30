@@ -11,8 +11,6 @@
  * @author Fred Neumann <fred.neumann@ili.fau.de>
  *
  * @ilCtrl_IsCalledBy ilPCPluginQuestionPluginGUI: ilPCPluggedGUI
- * @ilCtrl_IsCalledBy ilPCPluginQuestionPluginGUI: ilLMPresentationGUI
- * @ilCtrl_Calls ilPCPluginQuestionPluginGUI: ilPCPluginQuestionPresentationGUI
  */
 class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 {
@@ -336,9 +334,12 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 		if ($a_properties['question_id'] > 0)
         {
             $this->plugin->includeClass('class.ilPCPluginQuestionPresentationGUI.php');
-            $pres_gui = new ilPCPluginQuestionPresentationGUI($this->plugin);
+            $pres_gui = new ilPCPluginQuestionPresentationGUI();
+            $pres_gui->setPlugin($this->plugin);
             $pres_gui->setPresentatioMode($a_mode);
+            $pres_gui->setPageId($this->plugin->getPageId());
             $pres_gui->setQuestionId($a_properties['question_id']);
+            $pres_gui->init();
             $html .= $pres_gui->getHTML();
         }
 
