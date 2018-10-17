@@ -304,6 +304,11 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
     /**
      * Show the question editor
      * @param int $question_id
+     *
+     * This redirects to the edit GUI of the plugin question through ilQuestionEditGUI
+     *
+     * @see ilPageObjectGUI::executeCommand()
+     * @see ilQuestionEditGUI::executeCommand()
      */
 	protected function editQuestion($question_id)
     {
