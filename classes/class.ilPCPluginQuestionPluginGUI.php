@@ -190,7 +190,12 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
             $add_quest_cont_edit_mode = $this->form_gui->getInput('add_quest_cont_edit_mode');
 
             $q_gui = assQuestionGUI::_getQuestionGUI($question_type);
-            $q_gui->object->setAdditionalContentEditingMode($add_quest_cont_edit_mode);
+            require_once 'Modules/TestQuestionPool/exceptions/class.ilTestQuestionPoolException.php';
+            try {
+                $q_gui->object->setAdditionalContentEditingMode($add_quest_cont_edit_mode);
+            } catch (ilTestQuestionPoolException $exception) {
+                //Do nothing with exception
+            }
             $q_gui->object->setDefaultNrOfTries(ilObjSAHSLearningModule::_getTries($this->plugin->getParentId()));
             // copage must be created
             // otherwise deleting the question brings an error
