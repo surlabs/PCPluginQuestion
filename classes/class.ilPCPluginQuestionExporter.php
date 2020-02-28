@@ -63,12 +63,29 @@ class ilPCPluginQuestionExporter extends ilPageComponentPluginExporter
 	 */
 	public function getXmlRepresentation($a_entity, $a_schema_version, $a_id)
 	{
-		/** @var ilTestPageComponentPlugin $plugin */
-		$plugin = ilPluginAdmin::getPluginObject(IL_COMP_SERVICE, 'COPage', 'pgcp', 'TestPageComponent');
+        if ($a_entity == "pgcp") {
 
-		$properties = self::getPCProperties($a_id);
-		$data = $plugin->getData($properties['additional_data_id']);
-		return '<data>'. htmlentities($data) . '</data>';
+            /** @var ilPCPluginQuestionPlugin $plugin */
+            $plugin = ilPluginAdmin::getPluginObject(IL_COMP_SERVICE, 'COPage', 'pgcp', 'PCPluginQuestion');
+            $properties = self::getPCProperties($a_id);
+
+            //Get the question type
+            $question_id = $properties['question_id'];
+            $question_type = assQuestion::_getQuestionType($question_id);
+
+            //Include main class
+            assQuestion::_includeClass($question_type);
+
+            //Create object and load data
+            $question = new $question_type();
+            $question->loadFromDb($question_id);
+
+            //Get XML
+            $xml = $question->toXML();
+            return $xml;
+        } else {
+            return $this->ds->getXmlRepresentation($a_entity, $a_schema_version, $a_id, "", true, true);
+        }
 	}
 
 	/**
