@@ -15,9 +15,8 @@ class ilPCPluginQuestionImporter extends ilPageComponentPluginImporter
 {
 	public function init()
 	{
-	    debug_print_backtrace(0,5);
-	    exit;
 	}
+
 
 
 	/**
