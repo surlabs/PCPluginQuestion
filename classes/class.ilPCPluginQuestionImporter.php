@@ -18,6 +18,7 @@ class ilPCPluginQuestionImporter extends ilPageComponentPluginImporter
 	}
 
 
+
 	/**
 	 * Import xml representation
 	 *

@@ -117,6 +117,24 @@ class ilPCPluginQuestionPlugin extends ilPageComponentPlugin
             $question->delete($question_id);
 		}
 	}
+
+	/**
+	 * Get additional data by id
+	 * @param $id
+	 */
+	public function getData($id)
+	{
+		global $DIC;
+		$db = $DIC->database();
+
+		$query = "SELECT data FROM pctcp_data WHERE id = " .$db->quote($id, 'integer');
+		$result = $db->query($query);
+		if ($row = $db->fetchAssoc($result))
+		{
+			return $row['data'];
+		}
+		return null;
+	}
 }
 
 ?>
