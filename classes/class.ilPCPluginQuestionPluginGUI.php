@@ -154,22 +154,22 @@ class ilPCPluginQuestionPluginGUI extends ilPageComponentPluginGUI
 
             $ri->addOption(new ilRadioOption(
                 $this->lng->txt('tst_add_quest_cont_edit_mode_default'),
-                assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_DEFAULT
+                assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_RTE
             ));
 
             $ri->addOption(new ilRadioOption(
                 $this->lng->txt('tst_add_quest_cont_edit_mode_page_object'),
-                assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_PAGE_OBJECT
+                assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_IPE
             ));
 
-            $ri->setValue(assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_DEFAULT);
+            $ri->setValue(assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_RTE);
 
             $this->form_gui->addItem($ri);
         }
         else
         {
             $hi = new ilHiddenInputGUI("question_content_editing_type");
-            $hi->setValue(assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_DEFAULT);
+            $hi->setValue(assQuestion::ADDITIONAL_CONTENT_EDITING_MODE_RTE);
             $this->form_gui->addItem($hi);
         }
 
